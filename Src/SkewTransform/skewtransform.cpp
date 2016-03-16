@@ -29,7 +29,7 @@ void main()
 	const double k2 = -2.032185f;
 	const double p1 = 0.003787f;
 	const double p2 = -0.016283f;
- 	const double k3 = 0.f;
+	const double k3 = 0.f;
 	const double skew_c = 0;
 
 
