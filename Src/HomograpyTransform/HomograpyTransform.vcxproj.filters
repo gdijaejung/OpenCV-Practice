@@ -2,5 +2,11 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="homograpy.cpp" />
+    <ClCompile Include="rectcontour2.cpp" />
+    <ClCompile Include="vector3.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="rectcontour2.h" />
+    <ClInclude Include="vector3.h" />
   </ItemGroup>
 </Project>

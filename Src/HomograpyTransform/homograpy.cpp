@@ -16,6 +16,8 @@
 #pragma comment(lib, "opencv_highgui2411d.lib")
 #pragma comment(lib, "opencv_imgproc2411d.lib")
 
+#include "vector3.h"
+
 
 using namespace std;
 using namespace cv;
@@ -25,6 +27,7 @@ using namespace cv;
 void MouseClickHandler(int event, int x, int y, int flags, void* userdata);
 bool GetIntersectPoint(const Point2f& AP1, const Point2f& AP2, const Point2f& BP1, const Point2f& BP2, Point2f* IP);
 void OrderedContours(const vector<cv::Point> &src, OUT vector<cv::Point> &dst);
+bool OrderedContours2(const vector<cv::Point> &src, OUT vector<cv::Point> &dst);
 
 
 vector<Point> g_mouseClickPos;
@@ -43,11 +46,26 @@ int main(int argc, char *argv[])
 
 	while (1)
 	{
+		Point oldPos(0,0);
 		mouseMat.setTo(Scalar(200, 200, 200));
 		for (unsigned int i = 0; i < g_mouseClickPos.size(); ++i)
 		{
 			const Point pos = g_mouseClickPos[i];
 			circle(mouseMat, pos, 10, Scalar(0, 0, 0), CV_FILLED);
+		}
+
+		if (g_mouseClickPos.size() == 4)
+		{
+			vector<Point> contour(4);
+			OrderedContours(g_mouseClickPos, contour);
+
+			line(mouseMat, contour[0], contour[1], Scalar(0, 0, 0), 2);
+			line(mouseMat, contour[1], contour[2], Scalar(0, 0, 0), 2);
+			line(mouseMat, contour[2], contour[3], Scalar(0, 0, 0), 2);
+			line(mouseMat, contour[3], contour[0], Scalar(0, 0, 0), 2);
+
+			line(mouseMat, contour[0], contour[2], Scalar(0, 0, 0), 2);
+			line(mouseMat, contour[1], contour[3], Scalar(0, 0, 0), 2);
 		}
 
 		circle(mouseMat, g_camPos, 10, Scalar(0, 100, 0), CV_FILLED);
@@ -107,7 +125,12 @@ void MouseClickHandler(int event, int x, int y, int flags, void* userdata)
 
 			Point2f ip; // 중점
 			if (!GetIntersectPoint(contour[0], contour[2], contour[3], contour[1], &ip))
-				return;
+			{
+				OrderedContours2(g_mouseClickPos, contour);
+			}
+
+			vector<Point> contour2(4);
+			OrderedContours2(g_mouseClickPos, contour2);
 
 			const float scale = 1.f;
 			const Point2f offset1 = ((Point2f)contour[0] - ip) * (scale - 1.f);
@@ -234,5 +257,95 @@ void OrderedContours(const vector<cv::Point> &src, OUT vector<cv::Point> &dst)
 		}
 	}
 
+}
 
+
+// contours 를 순서대로 정렬한다.
+// 0 ---------- 1
+// |				    |
+// |					|
+// |					|
+// 3 ---------- 2
+bool OrderedContours2(const vector<cv::Point> &src, OUT vector<cv::Point> &dst)
+{
+	//--------------------------------------------------------------------
+	// 4 point cross check
+	int crossIndices[3][4] =
+	{
+		{ 0, 1, 2, 3 },
+		{ 0, 2, 1, 3 },
+		{ 0, 3, 1, 2 },
+	};
+
+	int crossIdx = -1;
+	for (int i = 0; i < 3; ++i)
+	{
+		// line1 = p1-p2 
+		// line2 = p3-p4
+		const cv::Point p1 = src[crossIndices[i][0]];
+		const cv::Point p2 = src[crossIndices[i][1]];
+		const cv::Point p3 = src[crossIndices[i][2]];
+		const cv::Point p4 = src[crossIndices[i][3]];
+
+		cv::Point2f tmp;
+		if (GetIntersectPoint(p1, p2, p3, p4, &tmp))
+		{
+			crossIdx = i;
+			break;
+		}
+	}
+
+	if (crossIdx < 0)
+		return false;
+
+	// p1 ------ p2
+	// |              |
+	// |              |
+	// |              |
+	// p4 ------ p3
+	const cv::Point p1 = src[crossIndices[crossIdx][0]];
+	const cv::Point p2 = src[crossIndices[crossIdx][2]];
+	const cv::Point p3 = src[crossIndices[crossIdx][1]];
+	const cv::Point p4 = src[crossIndices[crossIdx][3]];
+
+
+	//--------------------------------------------------------------------
+	// 중점 계산
+	// 가장 큰 박스를 찾는다.
+	Point center = p1;
+	center += p2;
+	center += p3;
+	center += p4;
+
+	// 중심점 계산
+	center.x /= 4;
+	center.y /= 4;
+
+	Vector3 v1 = Vector3((float)p1.x, (float)p1.y, 0) - Vector3((float)center.x, (float)center.y, 0);
+	v1.Normalize();
+	Vector3 v2 = Vector3((float)p2.x, (float)p2.y, 0) - Vector3((float)center.x, (float)center.y, 0);
+	v2.Normalize();
+
+	// 0 ---------- 1
+	// |				    |
+	// |					|
+	// |					|
+	// 3 ---------- 2
+	const Vector3 crossV = v1.CrossProduct(v2);
+	if (crossV.z > 0)
+	{
+		dst[0] = p1;
+		dst[1] = p2;
+		dst[2] = p3;
+		dst[3] = p4;
+	}
+	else
+	{
+		dst[0] = p2;
+		dst[1] = p1;
+		dst[2] = p4;
+		dst[3] = p3;
+	}
+
+	return true;
 }
